@@ -75,8 +75,8 @@
     <p class="text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl mx-auto">
       Paste video links from YouTube Shorts, Instagram Reels, TikTok, Twitter/X, and Facebook. Download full HD MP4 clips, extract MP3 audio, or package everything into a single ZIP file.
     </p>
-    <p class="text-[11px] text-amber-300/80 bg-amber-950/30 border border-amber-800/40 inline-block px-3 py-1 rounded-full">
-      ⚠ Demo Mode — this build uses sample preview media, not a live extraction backend.
+    <p class="text-[11px] text-emerald-300/80 bg-emerald-950/30 border border-emerald-800/40 inline-block px-3 py-1 rounded-full">
+      ✓ Live extraction connected — only download videos you have the right to save.
     </p>
   </div>
 
@@ -209,7 +209,7 @@
       </div>
       <span class="font-semibold text-slate-300">Tap2Save.net Downloader</span>
       <span>•</span>
-      <span>High Speed Multi-Video Extractor (Demo Build)</span>
+      <span>High Speed Multi-Video Extractor</span>
     </div>
     <div class="flex items-center gap-4 text-slate-400">
       <button data-action="open-guide" class="hover:text-slate-200">Guide & Extension</button>
@@ -266,6 +266,105 @@ const SAMPLE_URLS = [
   'https://x.com/tech/status/1782391029381203',
 ];
 
+// ---------------- Live backend config ----------------
+const API_BASE = 'https://tap2save-backend-production.up.railway.app';
+
+async function extractVideoInfo(url){
+  const res = await fetch(`${API_BASE}/api/info`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if(!res.ok){
+    let msg = 'Extraction failed.';
+    try { msg = (await res.json()).error || msg; } catch(e){}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+function buildDownloadUrl({ url, formatId, type, filename }){
+  const params = new URLSearchParams({
+    url,
+    formatId: formatId || '',
+    type: type || 'video',
+    filename: filename || 'tap2save-video',
+  });
+  return `${API_BASE}/api/download?${params.toString()}`;
+}
+
+function formatBytes(bytes){
+  if(!bytes) return 'Unknown size';
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function formatDuration(seconds){
+  if(!seconds && seconds !== 0) return '--:--';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function mapApiPlatform(label){
+  const l = (label || '').toLowerCase();
+  if(l.includes('youtube')) return 'youtube';
+  if(l.includes('instagram')) return 'instagram';
+  if(l.includes('tiktok')) return 'tiktok';
+  if(l.includes('twitter') || l.includes('x.com')) return 'twitter';
+  if(l.includes('facebook')) return 'facebook';
+  return 'generic';
+}
+
+function buildFormatsFromApi(apiData){
+  const videoFormats = (apiData.formats || []).filter(f => f.kind === 'video').slice(0, 4);
+  const audioFormats = (apiData.formats || []).filter(f => f.kind === 'audio').slice(0, 1);
+  let combined = [...videoFormats, ...audioFormats];
+
+  // Fallback if the platform only handed back opaque "best" selectors
+  if(combined.length === 0){
+    if(apiData.recommended?.video) combined.push({ formatId: apiData.recommended.video, kind:'video', label:'Best available quality' });
+    if(apiData.recommended?.audio) combined.push({ formatId: apiData.recommended.audio, kind:'audio', label:'Best audio' });
+  }
+
+  return combined.map(f => {
+    const isAudio = f.kind === 'audio';
+    const quality = isAudio ? 'mp3_320' : (f.height ? `${f.height}p` : 'auto');
+    return {
+      id: f.formatId || `${quality}_${Math.random().toString(36).substr(2,4)}`,
+      label: isAudio ? 'MP3 Audio' : (f.label || quality),
+      quality,
+      format: isAudio ? 'mp3' : 'mp4',
+      filesize: formatBytes(f.filesize),
+      hasAudio: isAudio ? true : !!f.hasAudio,
+      downloadUrl: buildDownloadUrl({ url: apiData.originalUrl, formatId: f.formatId, type: isAudio ? 'audio' : 'video', filename: apiData.title }),
+    };
+  });
+}
+
+function mapApiResponseToItem(apiData, index, defaultQuality){
+  const formats = buildFormatsFromApi(apiData);
+  const selectedFormat = formats.find(f => f.quality === defaultQuality) || formats[0] || null;
+
+  return {
+    id: `vid_${Date.now()}_${index}_${Math.random().toString(36).substr(2,5)}`,
+    originalUrl: apiData.originalUrl,
+    platform: mapApiPlatform(apiData.platform),
+    title: apiData.title || 'Untitled video',
+    author: { name: apiData.uploader || 'Unknown creator', handle: '' },
+    thumbnailUrl: apiData.thumbnailUrl || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&auto=format&fit=crop&q=80',
+    duration: formatDuration(apiData.durationSeconds),
+    views: '',
+    likes: '',
+    description: `Live-extracted ${apiData.platform} video, ready to download.`,
+    formats,
+    selectedFormatId: selectedFormat ? selectedFormat.id : null,
+    status: 'ready',
+    progress: 0,
+    streamUrl: selectedFormat ? selectedFormat.downloadUrl : (formats[0] ? formats[0].downloadUrl : ''),
+  };
+}
+
 // ---------------- State ----------------
 const state = {
   queue: [],
@@ -314,61 +413,34 @@ function detectPlatform(url){
   return 'generic';
 }
 
-function generateVideoItem(url, index, defaultQuality){
-  const platform = detectPlatform(url);
-  const sample = SAMPLE_STREAMS[index % SAMPLE_STREAMS.length];
-  const isDirectMedia = /\.(mp4|webm|mov)$/i.test(url);
-
-  let customTitle = sample.title;
-  try {
-    const urlObj = new URL(url);
-    const parts = urlObj.pathname.split('/').filter(Boolean);
-    if(parts.length > 0){
-      const last = parts[parts.length-1].replace(/[-_]/g,' ');
-      if(last.length > 3 && !last.includes('.')) customTitle = last.charAt(0).toUpperCase() + last.slice(1);
-    }
-  } catch(e){}
-
-  const streamUrl = isDirectMedia ? url : sample.stream;
-  const videoTitle = isDirectMedia ? `Video File (${url.split('/').pop().substring(0,20)})` : `${platform.toUpperCase()}: ${customTitle}`;
-
-  const formats = [
-    { id:'f_1080p', label:'1080p Full HD (MP4)', quality:'1080p', format:'mp4', filesize:'24.8 MB', hasAudio:true },
-    { id:'f_720p', label:'720p HD (MP4)', quality:'720p', format:'mp4', filesize:'14.2 MB', hasAudio:true },
-    { id:'f_480p', label:'480p SD (MP4)', quality:'480p', format:'mp4', filesize:'7.5 MB', hasAudio:true },
-    { id:'f_mp3_320', label:'320kbps High Quality Audio (MP3)', quality:'mp3_320', format:'mp3', filesize:'4.1 MB', hasAudio:true },
-  ].map(f => ({ ...f, downloadUrl: streamUrl }));
-
-  const selectedFormat = formats.find(f => f.quality === defaultQuality) || formats[0];
-
-  return {
-    id: `vid_${Date.now()}_${index}_${Math.random().toString(36).substr(2,5)}`,
-    originalUrl: url,
-    platform,
-    title: videoTitle,
-    author: { name: sample.author, handle: sample.handle },
-    thumbnailUrl: sample.thumbnail,
-    duration: sample.duration,
-    views: sample.views,
-    likes: sample.likes,
-    description: `Sample preview clip standing in for a ${platform} video (demo mode — no live extraction backend connected).`,
-    formats,
-    selectedFormatId: selectedFormat.id,
-    status: 'ready',
-    progress: 0,
-    streamUrl,
-  };
-}
-
 // ---------------- Core actions ----------------
 async function processUrls(urls, defaultQuality){
   state.isLoading = true;
   renderInputBox();
-  await new Promise(r => setTimeout(r, 500)); // simulate network round-trip
-  const newItems = urls.map((u,i) => generateVideoItem(u, i, defaultQuality));
+
+  const newItems = [];
+  const failures = [];
+
+  for(let i = 0; i < urls.length; i++){
+    try {
+      const apiData = await extractVideoInfo(urls[i]);
+      newItems.push(mapApiResponseToItem(apiData, i, defaultQuality));
+    } catch(err){
+      failures.push({ url: urls[i], message: err.message });
+    }
+  }
+
   state.queue = [...newItems, ...state.queue];
   state.isLoading = false;
-  showToast(`Successfully extracted ${newItems.length} video ${newItems.length===1?'clip':'clips'}!`);
+
+  if(newItems.length > 0){
+    showToast(`Successfully extracted ${newItems.length} video ${newItems.length===1?'clip':'clips'}!`);
+  }
+  if(failures.length > 0){
+    showToast(`${failures.length} link${failures.length===1?'':'s'} couldn't be extracted (private, unsupported, or invalid).`);
+    console.warn('Extraction failures:', failures);
+  }
+
   renderAll();
   setTimeout(() => {
     const el = document.getElementById('queueSection');
@@ -822,8 +894,8 @@ function renderModals(){
           </div>
           <div class="space-y-2 pt-2 border-t border-slate-800">
             <h4 class="font-semibold text-slate-200 text-xs uppercase tracking-wider text-slate-400">FAQ</h4>
-            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80"><h5 class="font-medium text-slate-200">Is this connected to a real extraction service?</h5><p class="text-slate-400 text-[11px] mt-0.5">No — this build is a self-contained demo that uses sample preview clips so the interface works fully offline with no backend.</p></div>
-            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80"><h5 class="font-medium text-slate-200">Can I convert to MP3 audio?</h5><p class="text-slate-400 text-[11px] mt-0.5">Yes, select "320kbps Audio (MP3)" format to simulate audio-only extraction.</p></div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80"><h5 class="font-medium text-slate-200">Is this connected to a real extraction service?</h5><p class="text-slate-400 text-[11px] mt-0.5">Yes — links are sent to a live backend that fetches the real video and formats for public, non-private posts.</p></div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80"><h5 class="font-medium text-slate-200">Can I convert to MP3 audio?</h5><p class="text-slate-400 text-[11px] mt-0.5">Yes — select the "MP3 Audio" format on any queued item to download an audio-only version.</p></div>
           </div>
         </div>
         <div class="mt-5 pt-3 border-t border-slate-800 flex justify-end"><button data-action="close-guide" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors">Got It!</button></div>
