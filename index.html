@@ -96,16 +96,16 @@
           <p class="text-xs text-slate-400 mt-0.5">Paste 1 or multiple video links below from YouTube, Instagram, TikTok, Twitter, Facebook, etc.</p>
         </div>
         <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
-          <button type="button" data-action="mode-single" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-slate-200">Single Link</button>
-          <button type="button" data-action="mode-batch" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 bg-indigo-600 text-white shadow-md">
+          <button type="button" data-action="mode-single" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md">Single Link</button>
+          <button type="button" data-action="mode-batch" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-slate-400 hover:text-slate-200">
             <i data-lucide="layers" class="w-3.5 h-3.5"></i><span>Multi Link (Bulk)</span>
           </button>
         </div>
       </div>
 
       <form id="urlForm" class="mt-5 space-y-4">
-        <div id="singleModeBox" class="hidden">
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Video URL</label>
+        <div id="singleModeBox">
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Video URL <span class="text-slate-500 font-normal normal-case">— paste a link and the download starts automatically</span></label>
           <div class="relative">
             <input id="singleUrlInput" type="url" placeholder="Paste video link e.g. https://instagram.com/reel/... or https://youtu.be/..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-colors pr-24" />
             <button type="button" data-action="paste-clipboard" data-mode="single" class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors">
@@ -114,7 +114,7 @@
           </div>
         </div>
 
-        <div id="batchModeBox">
+        <div id="batchModeBox" class="hidden">
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-medium text-slate-300 flex items-center gap-2">
               <span>Paste Multiple Video URLs (One URL per line)</span>
@@ -381,7 +381,7 @@ const state = {
   isLoading: false,
   isZipGenerating: false,
   filterPlatform: 'all',
-  mode: 'batch',
+  mode: 'single',
   previewItemId: null,
   aiItemId: null,
   aiData: null,
@@ -455,6 +455,8 @@ async function processUrls(urls, defaultQuality){
     const el = document.getElementById('queueSection');
     if(el) el.scrollIntoView({behavior:'smooth'});
   }, 200);
+
+  return newItems;
 }
 
 function handleFormatChange(itemId, formatId){
@@ -1041,6 +1043,39 @@ function renderAll(){
   renderModals();
 }
 
+// ---------------- Single-link mode: auto-start download ----------------
+let singleAutoTimer = null;
+let lastAutoDownloadedUrl = '';
+
+function isLikelyVideoUrl(str){
+  try {
+    const u = new URL(str.trim());
+    return ['http:', 'https:'].includes(u.protocol) && u.hostname.includes('.');
+  } catch { return false; }
+}
+
+async function autoStartSingleDownload(){
+  const input = document.getElementById('singleUrlInput');
+  if(!input) return;
+  const val = input.value.trim();
+  if(!val || !isLikelyVideoUrl(val) || val === lastAutoDownloadedUrl || state.isLoading) return;
+
+  lastAutoDownloadedUrl = val;
+  const quality = document.getElementById('defaultQualitySelect').value;
+  const newItems = await processUrls([val], quality);
+
+  if(newItems && newItems.length > 0){
+    const item = newItems[0];
+    const isAudioOnly = quality === 'mp3_320';
+    showToast('Link detected — starting download automatically!');
+    triggerItemDownload(item, isAudioOnly);
+  }
+
+  // Clear the box so the next pasted link is treated as a fresh request
+  input.value = '';
+  renderInputBox();
+}
+
 // ---------------- Event delegation ----------------
 document.addEventListener('submit', (e) => {
   if(e.target.id === 'urlForm'){
@@ -1061,6 +1096,10 @@ document.addEventListener('submit', (e) => {
 document.addEventListener('input', (e) => {
   if(e.target.id === 'singleUrlInput' || e.target.id === 'batchUrlInput'){
     renderInputBox();
+  }
+  if(e.target.id === 'singleUrlInput' && state.mode === 'single'){
+    clearTimeout(singleAutoTimer);
+    singleAutoTimer = setTimeout(autoStartSingleDownload, 500);
   }
   if(e.target.id === 'historySearchInput'){
     state.historySearch = e.target.value;
@@ -1103,13 +1142,20 @@ document.addEventListener('click', (e) => {
     case 'close-history': case 'close-history-backdrop': state.isHistoryOpen = false; state.historySearch=''; renderModals(); break;
     case 'close-preview': case 'close-preview-backdrop': state.previewItemId = null; renderModals(); break;
     case 'close-ai': case 'close-ai-backdrop': state.aiItemId = null; state.aiData = null; renderModals(); break;
-    case 'mode-single': state.mode = 'single'; renderInputBox(); break;
-    case 'mode-batch': state.mode = 'batch'; renderInputBox(); break;
+    case 'mode-single': state.mode = 'single'; lastAutoDownloadedUrl = ''; renderInputBox(); break;
+    case 'mode-batch': clearTimeout(singleAutoTimer); state.mode = 'batch'; renderInputBox(); break;
     case 'paste-clipboard':
       navigator.clipboard.readText().then(text => {
-        if(el.dataset.mode === 'single'){ document.getElementById('singleUrlInput').value = text; }
-        else { const ta = document.getElementById('batchUrlInput'); ta.value = ta.value ? ta.value + '\n' + text : text; }
-        renderInputBox();
+        if(el.dataset.mode === 'single'){
+          document.getElementById('singleUrlInput').value = text;
+          renderInputBox();
+          clearTimeout(singleAutoTimer);
+          autoStartSingleDownload();
+        } else {
+          const ta = document.getElementById('batchUrlInput');
+          ta.value = ta.value ? ta.value + '\n' + text : text;
+          renderInputBox();
+        }
       }).catch(()=>{ showToast('Clipboard access unavailable or denied.'); });
       break;
     case 'load-samples':
