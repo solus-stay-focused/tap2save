@@ -96,15 +96,15 @@
           <p class="text-xs text-slate-400 mt-0.5">Paste 1 or multiple video links below from YouTube, Instagram, TikTok, Twitter, Facebook, etc.</p>
         </div>
         <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
-          <button type="button" data-action="mode-single" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md">Single Link</button>
-          <button type="button" data-action="mode-batch" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-slate-400 hover:text-slate-200">
+          <button type="button" data-action="mode-single" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-slate-200">Single Link</button>
+          <button type="button" data-action="mode-batch" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 bg-indigo-600 text-white shadow-md">
             <i data-lucide="layers" class="w-3.5 h-3.5"></i><span>Multi Link (Bulk)</span>
           </button>
         </div>
       </div>
 
       <form id="urlForm" class="mt-5 space-y-4">
-        <div id="singleModeBox" class="">
+        <div id="singleModeBox" class="hidden">
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Video URL</label>
           <div class="relative">
             <input id="singleUrlInput" type="url" placeholder="Paste video link e.g. https://instagram.com/reel/... or https://youtu.be/..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-colors pr-24" />
@@ -114,7 +114,7 @@
           </div>
         </div>
 
-        <div id="batchModeBox" class="hidden">
+        <div id="batchModeBox">
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-medium text-slate-300 flex items-center gap-2">
               <span>Paste Multiple Video URLs (One URL per line)</span>
@@ -381,7 +381,7 @@ const state = {
   isLoading: false,
   isZipGenerating: false,
   filterPlatform: 'all',
-  mode: 'single',
+  mode: 'batch',
   previewItemId: null,
   aiItemId: null,
   aiData: null,
