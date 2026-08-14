@@ -481,13 +481,34 @@ async function triggerItemDownload(item, isAudioOnly){
 
   item.status = 'downloading';
   item.progress = 0;
-  item.progressKnown = false;
-  item.downloadedLabel = 'Connecting…';
+  item.progressKnown = true; // always show a % now, no more "Connecting..."
+  item.downloadedLabel = 'Preparing your file';
   item.speedLabel = '';
   renderQueue();
 
+  // The backend has to fetch + merge the file server-side before it can
+  // send any bytes back, so there's a real wait with nothing measurable
+  // yet. Rather than a static "Connecting..." label, show a smooth
+  // estimated percentage during that wait (capped so it never looks
+  // finished before data actually arrives), then hand off to real
+  // byte-based percentage once the transfer to the browser begins.
+  const estimatedMs = isAudioOnly ? 8000 : 20000; // rough guess by type
+  const startTime = performance.now();
+  let estimating = true;
+
+  const estimateTimer = setInterval(() => {
+    if(!estimating) return;
+    const elapsed = performance.now() - startTime;
+    const pct = Math.min(92, Math.round(92 * (1 - Math.exp(-elapsed / estimatedMs))));
+    item.progress = pct;
+    renderQueue();
+  }, 250);
+
   try {
     const res = await fetch(formatToUse.downloadUrl);
+    estimating = false;
+    clearInterval(estimateTimer);
+
     if(!res.ok || !res.body){
       throw new Error(`Server responded ${res.status}`);
     }
@@ -506,17 +527,19 @@ async function triggerItemDownload(item, isAudioOnly){
       loaded += value.length;
 
       const now = performance.now();
-      if(now - lastTickTime > 250){ // throttle re-renders to ~4/sec
+      if(now - lastTickTime > 200){ // throttle re-renders to ~5/sec
         const elapsed = (now - lastTickTime) / 1000;
         const speedBps = (loaded - lastTickBytes) / elapsed;
         item.speedLabel = `${formatBytes(speedBps)}/s`;
 
         if(declaredTotal > 0){
-          item.progressKnown = true;
-          item.progress = Math.min(99, Math.round((loaded / declaredTotal) * 100));
+          const realPct = Math.min(99, Math.round((loaded / declaredTotal) * 100));
+          item.progress = Math.max(item.progress, realPct); // never regress the bar
           item.downloadedLabel = `${formatBytes(loaded)} / ${formatBytes(declaredTotal)}`;
         } else {
-          item.progressKnown = false;
+          // No content-length available: keep nudging the percentage up
+          // so it still reads as "almost there" instead of just bytes.
+          item.progress = Math.min(99, item.progress + 1);
           item.downloadedLabel = `${formatBytes(loaded)} received`;
         }
 
@@ -536,6 +559,8 @@ async function triggerItemDownload(item, isAudioOnly){
     document.body.removeChild(link);
     URL.revokeObjectURL(blobUrl);
   } catch(e){
+    estimating = false;
+    clearInterval(estimateTimer);
     console.warn('Streamed download failed, falling back to direct open:', e.message);
     // Fallback: open directly if fetch/stream fails (e.g. CORS, network hiccup)
     window.open(formatToUse.downloadUrl, '_blank');
@@ -781,13 +806,10 @@ function renderQueueCard(item){
                 <span class="animate-pulse" style="animation-delay:300ms">.</span>
               </span>
             </span>
-            <span class="text-slate-400">${item.speedLabel ? item.speedLabel + ' • ' : ''}${item.progressKnown ? item.progress + '%' : ''}</span>
+            <span class="text-slate-400 font-semibold">${item.speedLabel ? item.speedLabel + ' • ' : ''}${item.progress}%</span>
           </div>
           <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-            ${item.progressKnown
-              ? `<div class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-200" style="width:${item.progress}%"></div>`
-              : `<div class="h-full w-1/3 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full" style="animation: indeterminate-slide 1.1s ease-in-out infinite;"></div>`
-            }
+            <div class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-200" style="width:${item.progress}%"></div>
           </div>
         </div>`:''}
         ${item.status==='completed'?`<div class="mt-2.5 flex items-center gap-1.5 text-xs text-green-400 font-medium"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Downloaded successfully!</span></div>`:''}
