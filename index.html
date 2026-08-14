@@ -285,7 +285,10 @@ async function extractVideoInfo(url){
   });
   if(!res.ok){
     let msg = 'Extraction failed.';
-    try { msg = (await res.json()).error || msg; } catch(e){}
+    try {
+      const body = await res.json();
+      msg = body.detail || body.error || msg;
+    } catch(e){}
     throw new Error(msg);
   }
   return res.json();
@@ -446,7 +449,8 @@ async function processUrls(urls, defaultQuality){
     showToast(`Successfully extracted ${newItems.length} video ${newItems.length===1?'clip':'clips'}!`);
   }
   if(failures.length > 0){
-    showToast(`${failures.length} link${failures.length===1?'':'s'} couldn't be extracted (private, unsupported, or invalid).`);
+    const firstReason = failures[0].message || 'Unknown error';
+    showToast(`${failures.length} link${failures.length===1?'':'s'} failed: ${firstReason}`);
     console.warn('Extraction failures:', failures);
   }
 
