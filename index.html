@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tap2Save.net — HD Multi-Downloader</title>
+<meta name="description" content="Download multiple social media videos in one click. Demo build." />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%234f46e5'/%3E%3Cstop offset='50%25' stop-color='%237c3aed'/%3E%3Cstop offset='100%25' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='40' height='40' rx='10' fill='url(%23g)'/%3E%3Ccircle cx='20' cy='13' r='5' fill='none' stroke='white' stroke-width='2.5'/%3E%3Cpath d='M20 19 L20 29 M15 25 L20 30 L25 25' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  body{ background:#020617; }
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-track{ background:#0f172a; }
+  ::-webkit-scrollbar-thumb{ background:#334155; border-radius:8px; }
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+  .animate-fadeIn{ animation:fadeIn .18s ease-out; }
+  .line-clamp-1{ overflow:hidden; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
+  .line-clamp-2{ overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  select option{ background:#0f172a; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
+
+<!-- Toast -->
+<div id="toastContainer"></div>
+
+<!-- Navbar -->
+<header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 text-slate-100">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div data-action="scroll-to-input" class="flex items-center gap-3 cursor-pointer group">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
+        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="7" r="3.3"></circle>
+          <path d="M12 12.4 L12 20 M8 16.5 L12 20.5 L16 16.5"></path>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-200">Tap2Save.net</span>
+          <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wider text-indigo-300 bg-indigo-950/80 border border-indigo-800/60 rounded-full uppercase">HD Multi-Downloader</span>
+        </div>
+        <p class="text-xs text-slate-400 hidden sm:block">YouTube • Instagram • TikTok • Twitter • Facebook & More</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+      <button data-action="open-guide" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 transition-colors" title="How to Use & Extension Guide">
+        <i data-lucide="help-circle" class="w-3.5 h-3.5 text-indigo-400"></i>
+        <span class="hidden md:inline">How It Works</span>
+      </button>
+      <button data-action="open-history" class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 transition-colors" title="View Download History">
+        <i data-lucide="history" class="w-3.5 h-3.5 text-indigo-400"></i>
+        <span>History</span>
+      </button>
+      <button id="navQueueBtn" data-action="scroll-to-input" class="hidden items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-colors">
+        <i data-lucide="film" class="w-3.5 h-3.5"></i>
+        <span id="navQueueCount">Queue (0)</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+  <div class="text-center space-y-3 max-w-3xl mx-auto pt-2">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 text-xs font-medium">
+      <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300 animate-pulse"></i>
+      <span>All-In-One Multi-Video Batch Extractor</span>
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+      Download Multiple Social Media Videos in <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">1-Click</span>
+    </h1>
+    <p class="text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl mx-auto">
+      Paste video links from YouTube Shorts, Instagram Reels, TikTok, Twitter/X, and Facebook. Download full HD MP4 clips, extract MP3 audio, or package everything into a single ZIP file.
+    </p>
+    <p class="text-[11px] text-amber-300/80 bg-amber-950/30 border border-amber-800/40 inline-block px-3 py-1 rounded-full">
+      ⚠ Demo Mode — this build uses sample preview media, not a live extraction backend.
+    </p>
+  </div>
+
+  <!-- URL Input Box -->
+  <div id="inputSection" class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-6 text-slate-100 relative overflow-hidden">
+    <div class="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="relative z-10">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="download" class="w-5 h-5 text-indigo-400"></i>
+            Download Multiple Social Media Videos
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Paste 1 or multiple video links below from YouTube, Instagram, TikTok, Twitter, Facebook, etc.</p>
+        </div>
+        <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+          <button type="button" data-action="mode-single" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-slate-200">Single Link</button>
+          <button type="button" data-action="mode-batch" class="mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 bg-indigo-600 text-white shadow-md">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i><span>Multi Link (Bulk)</span>
+          </button>
+        </div>
+      </div>
+
+      <form id="urlForm" class="mt-5 space-y-4">
+        <div id="singleModeBox" class="hidden">
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Video URL</label>
+          <div class="relative">
+            <input id="singleUrlInput" type="url" placeholder="Paste video link e.g. https://instagram.com/reel/... or https://youtu.be/..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-colors pr-24" />
+            <button type="button" data-action="paste-clipboard" data-mode="single" class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors">
+              <i data-lucide="clipboard" class="w-3 h-3"></i><span>Paste</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="batchModeBox">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-medium text-slate-300 flex items-center gap-2">
+              <span>Paste Multiple Video URLs (One URL per line)</span>
+              <span id="urlCountBadge" class="hidden px-2 py-0.5 text-[10px] bg-indigo-900/60 text-indigo-300 rounded-full font-semibold border border-indigo-700/50"></span>
+            </label>
+            <div class="flex items-center gap-2">
+              <button type="button" data-action="paste-clipboard" data-mode="batch" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+                <i data-lucide="clipboard" class="w-3 h-3"></i><span>Paste Clipboard</span>
+              </button>
+              <span class="text-slate-700">•</span>
+              <button type="button" data-action="load-samples" id="loadSamplesBtn" class="text-xs text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1">
+                <i data-lucide="play" class="w-3 h-3"></i><span>Load Sample Links</span>
+              </button>
+            </div>
+          </div>
+          <textarea id="batchUrlInput" rows="5" placeholder="Paste 2 to 20 social video links here (one per line):&#10;https://www.youtube.com/shorts/xyz&#10;https://www.instagram.com/reel/abc&#10;https://www.tiktok.com/@user/video/123&#10;https://x.com/user/status/456" class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl p-3.5 text-xs sm:text-sm text-slate-100 placeholder-slate-600 font-mono transition-colors"></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+          <div class="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
+            <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400 shrink-0"></i>
+            <span class="text-xs font-medium text-slate-400 shrink-0">Default Format:</span>
+            <select id="defaultQualitySelect" class="bg-transparent text-xs font-semibold text-indigo-300 focus:outline-none cursor-pointer">
+              <option value="1080p">1080p Full HD (MP4)</option>
+              <option value="720p">720p HD (MP4)</option>
+              <option value="480p">480p SD (MP4)</option>
+              <option value="mp3_320">320kbps Audio (MP3)</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 justify-end">
+            <button type="button" data-action="clear-input" class="px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Clear</span>
+            </button>
+            <button type="submit" id="fetchBtn" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg transition-all flex items-center gap-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-indigo-600/30 hover:scale-[1.02]">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-300 animate-pulse"></i>
+              <span id="fetchBtnLabel">Fetch & Extract Videos</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Queue Section -->
+  <section id="queueSection" class="hidden space-y-4 pt-4 animate-fadeIn">
+    <div id="batchControlsBar"></div>
+    <div id="queueGrid" class="grid grid-cols-1 gap-3.5"></div>
+  </section>
+
+  <!-- Supported Platforms -->
+  <section class="pt-6">
+    <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 text-slate-100">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="p-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-indigo-400"><i data-lucide="globe" class="w-4 h-4"></i></span>
+            <h3 class="font-bold text-lg text-white">Supported Social Networks</h3>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Batch download videos & audio from 10+ major social media platforms without quality loss</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-indigo-300 bg-indigo-950/60 border border-indigo-800/60 px-3 py-1.5 rounded-xl self-start md:self-auto font-medium">
+          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+          <span>100% Free • No Registration • No Limits</span>
+        </div>
+      </div>
+      <div id="platformsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5"></div>
+      <div class="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400 shrink-0"><i data-lucide="layers" class="w-4 h-4"></i></div>
+          <div><h4 class="font-semibold text-slate-200">Bulk Link Extraction</h4><p class="text-[11px] text-slate-400">Paste up to 20 social video links at once</p></div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-purple-950 border border-purple-800/60 flex items-center justify-center text-purple-400 shrink-0"><i data-lucide="music" class="w-4 h-4"></i></div>
+          <div><h4 class="font-semibold text-slate-200">HD MP4 & 320k MP3</h4><p class="text-[11px] text-slate-400">Separate audio extraction for podcasts & reels</p></div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-pink-950 border border-pink-800/60 flex items-center justify-center text-pink-400 shrink-0"><i data-lucide="sparkles" class="w-4 h-4 text-amber-300"></i></div>
+          <div><h4 class="font-semibold text-slate-200">AI Summarizer</h4><p class="text-[11px] text-slate-400">Auto-generate captions & viral hashtags</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="border-t border-slate-900 bg-slate-950 py-8 text-slate-500 text-xs">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-2">
+      <div class="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="7" r="3.3"></circle>
+          <path d="M12 12.4 L12 20 M8 16.5 L12 20.5 L16 16.5"></path>
+        </svg>
+      </div>
+      <span class="font-semibold text-slate-300">Tap2Save.net Downloader</span>
+      <span>•</span>
+      <span>High Speed Multi-Video Extractor (Demo Build)</span>
+    </div>
+    <div class="flex items-center gap-4 text-slate-400">
+      <button data-action="open-guide" class="hover:text-slate-200">Guide & Extension</button>
+      <button data-action="open-history" class="hover:text-slate-200">History</button>
+      <button data-action="scroll-to-input" class="hover:text-slate-200">Back to Top</button>
+    </div>
+  </div>
+</footer>
+
+<!-- Modals mount point -->
+<div id="modalsRoot"></div>
+
+<script>
+/* =========================================================
+   Tap2Save.net — standalone demo build (no backend required)
+   All video data is simulated with public sample streams.
+   ========================================================= */
+
+const SAMPLE_STREAMS = [
+  { stream:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', thumbnail:'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&auto=format&fit=crop&q=80', title:'High Performance Action Clip #1', author:'Trending Creator', handle:'@viral_creator', duration:'01:30', views:'1.2M', likes:'84.2K' },
+  { stream:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', thumbnail:'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80', title:'Creative Cinematic Masterpiece', author:'Studio Artistry', handle:'@artistry_official', duration:'02:15', views:'850K', likes:'45.1K' },
+  { stream:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', thumbnail:'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=800&auto=format&fit=crop&q=80', title:'Epic Tech & Gadget Reel', author:'Tech Insider', handle:'@techinsider', duration:'00:45', views:'3.4M', likes:'210.5K' },
+  { stream:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', thumbnail:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80', title:'Travel & Paradise Explorer Reel', author:'Wanderlust Vlogs', handle:'@wanderlust_vlogs', duration:'01:05', views:'2.1M', likes:'142.0K' },
+  { stream:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4', thumbnail:'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80', title:'Sci-Fi Visual Effects Highlight', author:'VFX Motion Lab', handle:'@vfx_motion', duration:'03:10', views:'4.8M', likes:'390K' },
+];
+
+const PLATFORM_CONFIG = {
+  youtube:{ label:'YouTube Shorts', bg:'bg-red-950/80', text:'text-red-400', border:'border-red-800/60' },
+  instagram:{ label:'Instagram Reel', bg:'bg-pink-950/80', text:'text-pink-400', border:'border-pink-800/60' },
+  tiktok:{ label:'TikTok (No WM)', bg:'bg-teal-950/80', text:'text-teal-400', border:'border-teal-800/60' },
+  twitter:{ label:'Twitter / X', bg:'bg-sky-950/80', text:'text-sky-400', border:'border-sky-800/60' },
+  facebook:{ label:'Facebook Video', bg:'bg-blue-950/80', text:'text-blue-400', border:'border-blue-800/60' },
+  pinterest:{ label:'Pinterest Pin', bg:'bg-red-950/80', text:'text-red-300', border:'border-red-800/60' },
+  reddit:{ label:'Reddit Video', bg:'bg-orange-950/80', text:'text-orange-400', border:'border-orange-800/60' },
+  threads:{ label:'Threads Clip', bg:'bg-purple-950/80', text:'text-purple-300', border:'border-purple-800/60' },
+  vimeo:{ label:'Vimeo HD', bg:'bg-indigo-950/80', text:'text-indigo-400', border:'border-indigo-800/60' },
+  generic:{ label:'Social Video', bg:'bg-slate-800', text:'text-slate-300', border:'border-slate-700' },
+};
+
+const PLATFORMS_SHOWCASE = [
+  { name:'YouTube & Shorts', color:'from-red-600 to-rose-700', desc:'Download videos up to 1080p HD, Shorts, and 320kbps MP3 audio.', badge:'Shorts & Videos' },
+  { name:'Instagram Reels & Posts', color:'from-pink-600 to-purple-600', desc:'Save public Reels, Carousel videos, and Stories in full resolution MP4.', badge:'Reels & Stories' },
+  { name:'TikTok Videos', color:'from-teal-500 to-cyan-600', desc:'Download viral TikTok clips without watermark in crisp HD quality.', badge:'No Watermark' },
+  { name:'Twitter / X', color:'from-sky-500 to-blue-600', desc:'Extract MP4 videos and GIFs directly from tweets and spaces.', badge:'HD Videos & GIFs' },
+  { name:'Facebook Videos', color:'from-blue-600 to-indigo-700', desc:'Save public Facebook watch clips, reels, and video posts.', badge:'Watch & Reels' },
+  { name:'Pinterest & Reddit', color:'from-orange-600 to-amber-600', desc:'Download video pins and Reddit media posts with audio intact.', badge:'Pins & Reddit' },
+  { name:'Threads & Vimeo', color:'from-purple-600 to-indigo-600', desc:'Save video posts from Meta Threads and Vimeo HD video streams.', badge:'Threads & Vimeo' },
+];
+
+const SAMPLE_URLS = [
+  'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  'https://www.instagram.com/reel/C3x9pL2M7yZ/',
+  'https://www.tiktok.com/@viral/video/7312984719283712',
+  'https://x.com/tech/status/1782391029381203',
+];
+
+// ---------------- State ----------------
+const state = {
+  queue: [],
+  history: (() => { try { return JSON.parse(localStorage.getItem('mb_download_history')) || []; } catch(e){ return []; } })(),
+  isLoading: false,
+  isZipGenerating: false,
+  filterPlatform: 'all',
+  mode: 'batch',
+  previewItemId: null,
+  aiItemId: null,
+  aiData: null,
+  aiLoading: false,
+  isGuideOpen: false,
+  isHistoryOpen: false,
+  historySearch: '',
+};
+
+function saveHistory(){
+  try { localStorage.setItem('mb_download_history', JSON.stringify(state.history)); } catch(e){}
+}
+
+function showToast(msg){
+  const c = document.getElementById('toastContainer');
+  c.innerHTML = `<div class="fixed bottom-5 right-5 z-50 bg-indigo-600 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-indigo-400/30 animate-fadeIn">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-green-300 shrink-0"></i><span>${escapeHtml(msg)}</span></div>`;
+  lucide.createIcons();
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => { c.innerHTML=''; }, 3000);
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function detectPlatform(url){
+  const lower = url.toLowerCase();
+  if(lower.includes('youtube.com') || lower.includes('youtu.be')) return 'youtube';
+  if(lower.includes('instagram.com') || lower.includes('instagr.am')) return 'instagram';
+  if(lower.includes('tiktok.com')) return 'tiktok';
+  if(lower.includes('twitter.com') || lower.includes('x.com')) return 'twitter';
+  if(lower.includes('facebook.com') || lower.includes('fb.watch')) return 'facebook';
+  if(lower.includes('pinterest.com') || lower.includes('pin.it')) return 'pinterest';
+  if(lower.includes('reddit.com') || lower.includes('redd.it')) return 'reddit';
+  if(lower.includes('threads.net')) return 'threads';
+  if(lower.includes('vimeo.com')) return 'vimeo';
+  return 'generic';
+}
+
+function generateVideoItem(url, index, defaultQuality){
+  const platform = detectPlatform(url);
+  const sample = SAMPLE_STREAMS[index % SAMPLE_STREAMS.length];
+  const isDirectMedia = /\.(mp4|webm|mov)$/i.test(url);
+
+  let customTitle = sample.title;
+  try {
+    const urlObj = new URL(url);
+    const parts = urlObj.pathname.split('/').filter(Boolean);
+    if(parts.length > 0){
+      const last = parts[parts.length-1].replace(/[-_]/g,' ');
+      if(last.length > 3 && !last.includes('.')) customTitle = last.charAt(0).toUpperCase() + last.slice(1);
+    }
+  } catch(e){}
+
+  const streamUrl = isDirectMedia ? url : sample.stream;
+  const videoTitle = isDirectMedia ? `Video File (${url.split('/').pop().substring(0,20)})` : `${platform.toUpperCase()}: ${customTitle}`;
+
+  const formats = [
+    { id:'f_1080p', label:'1080p Full HD (MP4)', quality:'1080p', format:'mp4', filesize:'24.8 MB', hasAudio:true },
+    { id:'f_720p', label:'720p HD (MP4)', quality:'720p', format:'mp4', filesize:'14.2 MB', hasAudio:true },
+    { id:'f_480p', label:'480p SD (MP4)', quality:'480p', format:'mp4', filesize:'7.5 MB', hasAudio:true },
+    { id:'f_mp3_320', label:'320kbps High Quality Audio (MP3)', quality:'mp3_320', format:'mp3', filesize:'4.1 MB', hasAudio:true },
+  ].map(f => ({ ...f, downloadUrl: streamUrl }));
+
+  const selectedFormat = formats.find(f => f.quality === defaultQuality) || formats[0];
+
+  return {
+    id: `vid_${Date.now()}_${index}_${Math.random().toString(36).substr(2,5)}`,
+    originalUrl: url,
+    platform,
+    title: videoTitle,
+    author: { name: sample.author, handle: sample.handle },
+    thumbnailUrl: sample.thumbnail,
+    duration: sample.duration,
+    views: sample.views,
+    likes: sample.likes,
+    description: `Sample preview clip standing in for a ${platform} video (demo mode — no live extraction backend connected).`,
+    formats,
+    selectedFormatId: selectedFormat.id,
+    status: 'ready',
+    progress: 0,
+    streamUrl,
+  };
+}
+
+// ---------------- Core actions ----------------
+async function processUrls(urls, defaultQuality){
+  state.isLoading = true;
+  renderInputBox();
+  await new Promise(r => setTimeout(r, 500)); // simulate network round-trip
+  const newItems = urls.map((u,i) => generateVideoItem(u, i, defaultQuality));
+  state.queue = [...newItems, ...state.queue];
+  state.isLoading = false;
+  showToast(`Successfully extracted ${newItems.length} video ${newItems.length===1?'clip':'clips'}!`);
+  renderAll();
+  setTimeout(() => {
+    const el = document.getElementById('queueSection');
+    if(el) el.scrollIntoView({behavior:'smooth'});
+  }, 200);
+}
+
+function handleFormatChange(itemId, formatId){
+  const item = state.queue.find(i => i.id === itemId);
+  if(item) item.selectedFormatId = formatId;
+  renderQueue();
+}
+
+function handleApplyQualityToAll(quality){
+  state.queue.forEach(item => {
+    const f = item.formats.find(f => f.quality === quality) || item.formats[0];
+    item.selectedFormatId = f.id;
+  });
+  showToast(`Applied ${quality} format preset to all videos in queue.`);
+  renderQueue();
+}
+
+async function triggerItemDownload(item, isAudioOnly){
+  const formatToUse = isAudioOnly
+    ? (item.formats.find(f => f.format==='mp3') || item.formats[0])
+    : (item.formats.find(f => f.id === item.selectedFormatId) || item.formats[0]);
+
+  item.status = 'downloading'; item.progress = 15;
+  renderQueue();
+  for(let p=30; p<=90; p+=30){
+    await new Promise(r => setTimeout(r,150));
+    item.progress = p;
+    renderQueue();
+  }
+
+  try {
+    const res = await fetch(formatToUse.downloadUrl);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `${item.title}_${formatToUse.quality}.${formatToUse.format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch(e){
+    // Fallback: open directly if fetch/blob fails (e.g. CORS)
+    window.open(formatToUse.downloadUrl, '_blank');
+  }
+
+  item.status = 'completed'; item.progress = 100;
+
+  state.history = [{
+    id: `hist_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
+    title: item.title, platform: item.platform, formatLabel: formatToUse.label,
+    downloadedAt: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+    filesize: formatToUse.filesize, thumbnailUrl: item.thumbnailUrl, originalUrl: item.originalUrl,
+  }, ...state.history];
+  saveHistory();
+
+  showToast(`Started download: ${item.title.substring(0,30)}...`);
+  renderQueue();
+}
+
+async function handleDownloadAllZip(){
+  if(state.queue.length === 0) return;
+  state.isZipGenerating = true;
+  renderQueue();
+  try {
+    const zip = new JSZip();
+    const folder = zip.folder('Social_Downloads');
+    for(let i=0; i<state.queue.length; i++){
+      const item = state.queue[i];
+      const fmt = item.formats.find(f => f.id === item.selectedFormatId) || item.formats[0];
+      const cleanName = `${item.title.replace(/[^a-zA-Z0-9_\-]/g,'_')}_${fmt.quality}.${fmt.format}`.replace(/[/\\?%*:|"<>]/g,'_');
+      try {
+        const res = await fetch(item.streamUrl);
+        const blob = await res.blob();
+        folder.file(cleanName, blob);
+      } catch(e){ console.error('zip fetch failed', e); }
+    }
+    const content = await zip.generateAsync({type:'blob'});
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Social_Videos_Batch_${Date.now()}.zip`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    state.queue.forEach(i => { i.status='completed'; i.progress=100; });
+    showToast('Downloaded ZIP archive with all social media videos!');
+  } catch(e){
+    console.error(e);
+    showToast('Error generating ZIP archive.');
+  } finally {
+    state.isZipGenerating = false;
+    renderQueue();
+  }
+}
+
+async function handleDownloadAllSequential(){
+  showToast(`Starting batch download for ${state.queue.length} videos...`);
+  for(const item of [...state.queue]){
+    await triggerItemDownload(item, false);
+    await new Promise(r => setTimeout(r,400));
+  }
+}
+
+function handleRemoveQueueItem(id){
+  state.queue = state.queue.filter(i => i.id !== id);
+  renderAll();
+}
+function handleClearCompleted(){
+  state.queue = state.queue.filter(i => i.status !== 'completed');
+  showToast('Cleared completed items from queue.');
+  renderAll();
+}
+function handleClearAllQueue(){
+  state.queue = [];
+  showToast('Cleared video queue.');
+  renderAll();
+}
+
+// ---------------- AI Summary (local fallback, no backend/API key) ----------------
+function fetchAISummary(item){
+  state.aiLoading = true;
+  state.aiData = null;
+  renderModals();
+  setTimeout(() => {
+    state.aiData = {
+      summary: `This viral ${item.platform} video titled "${item.title}" features high engagement content with creative visual storytelling. It captures key insights tailored for audience retention.`,
+      keyTakeaways: [
+        'High visual appeal and engaging transitions.',
+        'Strong audience hook in the first 3 seconds.',
+        'Optimized for mobile viewing and social sharing.'
+      ],
+      hashtags: ['#ViralVideo', '#Trending', `#${item.platform}`, '#HDDownload', '#Reels'],
+      suggestedCaptions: [
+        `🔥 You won't believe what happens in this ${item.platform} video! Watch till the end!`,
+        `✨ Saving this top snippet for later inspiration. What do you think?`,
+        `🚀 Daily dose of trending content! Tag a friend who needs to see this.`
+      ]
+    };
+    state.aiLoading = false;
+    renderModals();
+  }, 900);
+}
+
+// ---------------- Render: Input box ----------------
+function renderInputBox(){
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    const isActive = btn.dataset.action === `mode-${state.mode}`;
+    btn.className = 'mode-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ' + (isActive ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200');
+  });
+  document.getElementById('singleModeBox').classList.toggle('hidden', state.mode !== 'single');
+  document.getElementById('batchModeBox').classList.toggle('hidden', state.mode !== 'batch');
+
+  const singleVal = document.getElementById('singleUrlInput').value.trim();
+  const batchVal = document.getElementById('batchUrlInput').value;
+  const urlCount = state.mode === 'single'
+    ? (singleVal ? 1 : 0)
+    : batchVal.split('\n').map(u=>u.trim()).filter(Boolean).length;
+
+  const badge = document.getElementById('urlCountBadge');
+  if(urlCount > 0){
+    badge.textContent = `${urlCount} ${urlCount===1?'URL':'URLs'} detected`;
+    badge.classList.remove('hidden');
+  } else badge.classList.add('hidden');
+
+  const fetchBtn = document.getElementById('fetchBtn');
+  const fetchLabel = document.getElementById('fetchBtnLabel');
+  fetchBtn.disabled = state.isLoading || urlCount === 0;
+  fetchBtn.className = 'px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg transition-all flex items-center gap-2 ' +
+    (fetchBtn.disabled ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-indigo-600/30 hover:scale-[1.02]');
+
+  if(state.isLoading){
+    fetchBtn.innerHTML = `<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div><span>Extracting Links...</span>`;
+  } else {
+    fetchBtn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 text-amber-300 animate-pulse"></i><span>${urlCount>1?`Fetch & Extract ${urlCount} Videos`:urlCount===1?'Fetch Video Links':'Fetch & Extract Videos'}</span>`;
+    lucide.createIcons();
+  }
+}
+
+// ---------------- Render: Batch controls bar ----------------
+function renderBatchControlsBar(){
+  const items = state.queue;
+  const totalCount = items.length;
+  const completedCount = items.filter(i=>i.status==='completed').length;
+  const platforms = [...new Set(items.map(i=>i.platform))];
+
+  document.getElementById('batchControlsBar').innerHTML = `
+  <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 text-slate-100 shadow-xl backdrop-blur-md">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-950 border border-indigo-800/60 flex items-center justify-center shrink-0"><i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i></div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-base text-white">Batch Queue (${totalCount})</h3>
+            ${completedCount>0?`<span class="px-2 py-0.5 text-xs bg-green-950 text-green-400 border border-green-800/60 rounded-full font-medium">${completedCount} Completed</span>`:''}
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Select bulk actions or batch download all social clips in 1-click</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        ${platforms.length>1?`
+        <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
+          <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-400"></i>
+          <select id="filterPlatformSelect" class="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer">
+            <option value="all" ${state.filterPlatform==='all'?'selected':''}>All Platforms</option>
+            ${platforms.map(p=>`<option value="${p}" ${state.filterPlatform===p?'selected':''}>${p.toUpperCase()}</option>`).join('')}
+          </select>
+        </div>`:''}
+        <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
+          <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span class="text-slate-400 hidden sm:inline">Set All:</span>
+          <select id="applyQualityAllSelect" class="bg-transparent text-indigo-300 font-semibold focus:outline-none cursor-pointer">
+            <option value="" disabled selected class="text-slate-500">Apply Format to All...</option>
+            <option value="1080p">1080p Full HD</option>
+            <option value="720p">720p HD</option>
+            <option value="480p">480p SD</option>
+            <option value="mp3_320">320kbps MP3 Audio</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button data-action="download-all-zip" ${state.isZipGenerating?'disabled':''} class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition-all flex items-center gap-2">
+          ${state.isZipGenerating?'<div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div><span>Creating ZIP Archive...</span>':'<i data-lucide="file-archive" class="w-4 h-4 text-amber-300"></i><span>Download All as ZIP</span>'}
+        </button>
+        <button data-action="download-all-sequential" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-400"></i><span>Download All (${totalCount})</span>
+        </button>
+        ${completedCount>0?`<button data-action="clear-completed" class="p-2 text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-400"></i></button>`:''}
+        <button data-action="clear-all-queue" class="p-2 text-slate-400 hover:text-red-400 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-medium transition-colors"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------------- Render: Queue cards ----------------
+function renderQueueCard(item){
+  const p = PLATFORM_CONFIG[item.platform] || PLATFORM_CONFIG.generic;
+  const currentFormat = item.formats.find(f=>f.id===item.selectedFormatId) || item.formats[0];
+  return `
+  <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition-all shadow-md group relative">
+    <div class="flex flex-col md:flex-row gap-4 items-start md:items-center">
+      <div class="relative w-full md:w-44 h-28 rounded-xl overflow-hidden bg-slate-950 shrink-0">
+        <img src="${item.thumbnailUrl}" alt="${escapeHtml(item.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+        <span class="absolute bottom-2 right-2 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-slate-950/90 text-slate-200 rounded border border-slate-800/80">${item.duration}</span>
+        <span class="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${p.bg} ${p.text} ${p.border}">${p.label}</span>
+        <button data-action="preview-item" data-id="${item.id}" class="absolute inset-0 bg-slate-950/40 hover:bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white" title="Preview Video">
+          <div class="w-10 h-10 rounded-full bg-indigo-600/90 hover:bg-indigo-500 flex items-center justify-center shadow-lg transform hover:scale-110 transition-all"><i data-lucide="play" class="w-5 h-5 fill-white ml-0.5"></i></div>
+        </button>
+      </div>
+      <div class="flex-1 min-w-0 w-full">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 class="font-semibold text-sm text-slate-100 line-clamp-1">${escapeHtml(item.title)}</h3>
+            <div class="flex items-center gap-2 mt-1 text-xs text-slate-400 flex-wrap">
+              <span class="font-medium text-slate-300">${escapeHtml(item.author.name)}</span><span>•</span><span class="text-slate-500">${escapeHtml(item.author.handle)}</span>
+              ${item.views?`<span>•</span><span class="flex items-center gap-1 text-slate-400"><i data-lucide="eye" class="w-3 h-3 text-slate-500"></i>${item.views}</span>`:''}
+            </div>
+          </div>
+          <button data-action="remove-item" data-id="${item.id}" class="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors shrink-0" title="Remove from Queue"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2.5">
+          <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1">
+            <i data-lucide="film" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <select data-action-change="format-change" data-id="${item.id}" class="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer pr-1">
+              ${item.formats.map(f=>`<option value="${f.id}" ${f.id===item.selectedFormatId?'selected':''}>${f.label} (${f.filesize})</option>`).join('')}
+            </select>
+          </div>
+          <button data-action="open-ai-item" data-id="${item.id}" class="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-purple-300 hover:text-purple-200 bg-purple-950/60 hover:bg-purple-900/80 border border-purple-800/50 rounded-xl transition-colors" title="Generate AI Summary, Hashtags & Captions">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i><span>AI Insights</span>
+          </button>
+          <a href="${item.originalUrl}" target="_blank" rel="noreferrer" class="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"><i data-lucide="external-link" class="w-3 h-3"></i><span class="hidden sm:inline">Source</span></a>
+        </div>
+        ${item.status==='downloading'?`
+        <div class="mt-3">
+          <div class="flex justify-between text-[11px] text-indigo-300 mb-1 font-mono"><span>Downloading stream...</span><span>${item.progress}%</span></div>
+          <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800"><div class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-200" style="width:${item.progress}%"></div></div>
+        </div>`:''}
+        ${item.status==='completed'?`<div class="mt-2.5 flex items-center gap-1.5 text-xs text-green-400 font-medium"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Downloaded successfully!</span></div>`:''}
+      </div>
+      <div class="flex sm:flex-col items-center gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+        <button data-action="download-single" data-id="${item.id}" ${item.status==='downloading'?'disabled':''} class="flex-1 sm:flex-initial w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-md transition-colors flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>Download (${currentFormat.quality})</span></button>
+        <button data-action="download-audio" data-id="${item.id}" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium rounded-xl transition-colors flex items-center justify-center gap-1.5 w-full" title="Download Audio MP3 only"><i data-lucide="music" class="w-3.5 h-3.5 text-pink-400"></i><span>MP3 Audio</span></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderQueue(){
+  const section = document.getElementById('queueSection');
+  section.classList.toggle('hidden', state.queue.length === 0);
+  if(state.queue.length === 0) return;
+
+  renderBatchControlsBar();
+  const filtered = state.filterPlatform === 'all' ? state.queue : state.queue.filter(i=>i.platform===state.filterPlatform);
+  document.getElementById('queueGrid').innerHTML = filtered.map(renderQueueCard).join('');
+  lucide.createIcons();
+}
+
+function renderNavbar(){
+  const btn = document.getElementById('navQueueBtn');
+  const countEl = document.getElementById('navQueueCount');
+  if(state.queue.length > 0){
+    btn.classList.remove('hidden'); btn.classList.add('flex');
+    countEl.textContent = `Queue (${state.queue.length})`;
+  } else {
+    btn.classList.add('hidden'); btn.classList.remove('flex');
+  }
+}
+
+function renderPlatformsShowcase(){
+  document.getElementById('platformsGrid').innerHTML = PLATFORMS_SHOWCASE.map(plat => `
+    <div class="bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 rounded-xl p-3.5 transition-all hover:bg-slate-900/80 group">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-r ${plat.color}"></span>
+          <span class="font-semibold text-xs text-slate-200 group-hover:text-white transition-colors">${plat.name}</span>
+        </div>
+        <span class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">${plat.badge}</span>
+      </div>
+      <p class="text-[11px] text-slate-400 leading-snug">${plat.desc}</p>
+    </div>`).join('');
+}
+
+// ---------------- Modals ----------------
+function renderModals(){
+  const root = document.getElementById('modalsRoot');
+  let html = '';
+
+  // Preview modal
+  if(state.previewItemId){
+    const item = state.queue.find(i=>i.id===state.previewItemId);
+    if(item){
+      const currentFormat = item.formats.find(f=>f.id===item.selectedFormatId) || item.formats[0];
+      html += `
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-preview-backdrop">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400"><i data-lucide="film" class="w-4 h-4"></i></div>
+              <div><h3 class="font-bold text-sm text-white line-clamp-1">${escapeHtml(item.title)}</h3><p class="text-xs text-slate-400">${escapeHtml(item.author.name)} (${item.platform.toUpperCase()})</p></div>
+            </div>
+            <button data-action="close-preview" class="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+          </div>
+          <div class="my-4 rounded-xl overflow-hidden bg-black aspect-video relative flex items-center justify-center border border-slate-800">
+            <video src="${item.streamUrl}" controls autoplay class="w-full h-full object-contain" poster="${item.thumbnailUrl}"></video>
+          </div>
+          <div class="space-y-3 text-xs text-slate-300">
+            <p class="text-slate-400 line-clamp-2">${escapeHtml(item.description||'')}</p>
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg font-mono text-indigo-300 font-semibold">Duration: ${item.duration}</span>
+                <span class="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg font-mono text-slate-300">Quality: ${currentFormat.quality}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <a href="${item.originalUrl}" target="_blank" rel="noreferrer" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium flex items-center gap-1 transition-colors"><i data-lucide="external-link" class="w-3 h-3"></i><span>Source Post</span></a>
+                <button data-action="download-from-preview" data-id="${item.id}" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-md transition-colors"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>Download Video</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
+  // AI Summary modal
+  if(state.aiItemId){
+    const item = state.queue.find(i=>i.id===state.aiItemId);
+    if(item){
+      const data = state.aiData;
+      html += `
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-ai-backdrop">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-y-auto" onclick="event.stopPropagation()">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-purple-950 border border-purple-800/60 flex items-center justify-center text-purple-400"><i data-lucide="sparkles" class="w-5 h-5 text-amber-300 animate-pulse"></i></div>
+              <div><h3 class="font-bold text-base text-white">AI Video Analysis</h3><p class="text-xs text-slate-400 line-clamp-1">${escapeHtml(item.title)}</p></div>
+            </div>
+            <button data-action="close-ai" class="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+          </div>
+          ${state.aiLoading ? `
+          <div class="py-12 flex flex-col items-center justify-center gap-3">
+            <div class="w-10 h-10 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+            <p class="text-xs font-medium text-slate-400">Analyzing video metadata & social trends...</p>
+          </div>` : data ? `
+          <div class="mt-4 space-y-5 text-xs text-slate-300">
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+              <h4 class="font-semibold text-slate-200 text-xs mb-1.5 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i><span>Video Summary</span></h4>
+              <p class="leading-relaxed text-slate-300">${escapeHtml(data.summary)}</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-200 text-xs mb-2 flex items-center gap-1.5"><i data-lucide="list-check" class="w-3.5 h-3.5 text-indigo-400"></i><span>Key Takeaways & Highlights</span></h4>
+              <ul class="space-y-1.5">${data.keyTakeaways.map(pt=>`<li class="flex items-start gap-2 bg-slate-950/60 p-2 rounded-lg border border-slate-800/60"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0"></span><span>${escapeHtml(pt)}</span></li>`).join('')}</ul>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="font-semibold text-slate-200 text-xs flex items-center gap-1.5"><i data-lucide="hash" class="w-3.5 h-3.5 text-pink-400"></i><span>Viral Hashtags</span></h4>
+                <button data-action="copy-hashtags" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium"><i data-lucide="copy" class="w-3 h-3"></i><span>Copy All Hashtags</span></button>
+              </div>
+              <div class="flex flex-wrap gap-1.5 bg-slate-950 p-3 rounded-xl border border-slate-800">${data.hashtags.map(t=>`<span class="px-2 py-0.5 bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 rounded-md font-mono text-[11px]">${escapeHtml(t)}</span>`).join('')}</div>
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-200 text-xs mb-2 flex items-center gap-1.5"><i data-lucide="message-square" class="w-3.5 h-3.5 text-amber-400"></i><span>Suggested Social Captions</span></h4>
+              <div class="space-y-2">${data.suggestedCaptions.map((c,idx)=>`
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start justify-between gap-3">
+                  <p class="text-slate-300 italic">"${escapeHtml(c)}"</p>
+                  <button data-action="copy-caption" data-index="${idx}" class="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg shrink-0 transition-colors" title="Copy Caption"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                </div>`).join('')}</div>
+            </div>
+          </div>` : ''}
+          <div class="mt-5 pt-3 border-t border-slate-800 flex justify-between items-center">
+            <button data-action="regenerate-ai" class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 font-medium"><i data-lucide="refresh-cw" class="w-3 h-3 ${state.aiLoading?'animate-spin':''}"></i><span>Regenerate Analysis</span></button>
+            <button data-action="close-ai" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-colors">Close</button>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
+  // Guide modal
+  if(state.isGuideOpen){
+    const bookmarkletCode = `javascript:(function(){var u=location.href;window.open('${window.location.origin+window.location.pathname}?url='+encodeURIComponent(u));})();`;
+    html += `
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-guide-backdrop">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400"><i data-lucide="help-circle" class="w-5 h-5"></i></div>
+            <div><h3 class="font-bold text-base text-white">How To Use Tap2Save.net</h3><p class="text-xs text-slate-400">Quick Guide & 1-Click Bookmarklet Tool</p></div>
+          </div>
+          <button data-action="close-guide" class="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div class="mt-4 space-y-5 text-xs text-slate-300">
+          <div class="space-y-3">
+            <h4 class="font-semibold text-slate-200 text-xs uppercase tracking-wider text-indigo-400">3 Simple Steps</h4>
+            <div class="space-y-2">
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex items-start gap-3"><span class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">1</span><div><h5 class="font-semibold text-slate-200">Copy Social Video Links</h5><p class="text-slate-400 text-[11px]">Copy video links from YouTube, Instagram Reels, TikTok, Twitter/X, or Facebook.</p></div></div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex items-start gap-3"><span class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">2</span><div><h5 class="font-semibold text-slate-200">Paste in Batch Mode</h5><p class="text-slate-400 text-[11px]">Paste multiple URLs (one per line) and select your desired format.</p></div></div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex items-start gap-3"><span class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">3</span><div><h5 class="font-semibold text-slate-200">Batch Download or ZIP</h5><p class="text-slate-400 text-[11px]">Click "Download All as ZIP" or download individual clips instantly.</p></div></div>
+            </div>
+          </div>
+          <div class="bg-gradient-to-br from-indigo-950/60 to-purple-950/60 border border-indigo-800/50 rounded-xl p-4">
+            <div class="flex items-center gap-2 mb-2"><i data-lucide="bookmark" class="w-4 h-4 text-amber-300"></i><h4 class="font-bold text-slate-100 text-xs">1-Click Browser Bookmarklet</h4></div>
+            <p class="text-slate-300 text-[11px] mb-3 leading-relaxed">Drag this button to your Browser Bookmarks bar. When viewing a video on any site, click the bookmark to send its URL to this page.</p>
+            <div class="flex flex-col sm:flex-row items-center gap-2">
+              <a href="${escapeHtml(bookmarkletCode)}" onclick="event.preventDefault()" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 cursor-grab shadow-md" title="Drag to your browser bookmarks bar"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>⚡ Tap2Save.net Quick Downloader</span></a>
+              <button data-action="copy-bookmarklet" class="w-full sm:w-auto px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1"><i data-lucide="copy" class="w-3.5 h-3.5"></i><span>Copy JS Code</span></button>
+            </div>
+          </div>
+          <div class="space-y-2 pt-2 border-t border-slate-800">
+            <h4 class="font-semibold text-slate-200 text-xs uppercase tracking-wider text-slate-400">FAQ</h4>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80"><h5 class="font-medium text-slate-200">Is this connected to a real extraction service?</h5><p class="text-slate-400 text-[11px] mt-0.5">No — this build is a self-contained demo that uses sample preview clips so the interface works fully offline with no backend.</p></div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80"><h5 class="font-medium text-slate-200">Can I convert to MP3 audio?</h5><p class="text-slate-400 text-[11px] mt-0.5">Yes, select "320kbps Audio (MP3)" format to simulate audio-only extraction.</p></div>
+          </div>
+        </div>
+        <div class="mt-5 pt-3 border-t border-slate-800 flex justify-end"><button data-action="close-guide" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors">Got It!</button></div>
+      </div>
+    </div>`;
+  }
+
+  // History modal
+  if(state.isHistoryOpen){
+    const search = state.historySearch.toLowerCase();
+    const filtered = state.history.filter(i => i.title.toLowerCase().includes(search) || i.platform.toLowerCase().includes(search));
+    html += `
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-history-backdrop">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400"><i data-lucide="history" class="w-5 h-5"></i></div>
+            <div><h3 class="font-bold text-base text-white">Download History</h3><p class="text-xs text-slate-400">Track and manage your downloaded video files (${state.history.length})</p></div>
+          </div>
+          <button data-action="close-history" class="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        ${state.history.length>0?`
+        <div class="my-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="relative w-full sm:w-64">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input id="historySearchInput" type="text" value="${escapeHtml(state.historySearch)}" placeholder="Search history..." class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none" />
+          </div>
+          <div class="flex items-center gap-2 self-end sm:self-auto">
+            <button data-action="export-csv" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl transition-colors flex items-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-400"></i><span>Export CSV</span></button>
+            <button data-action="clear-history" class="px-3 py-1.5 bg-slate-800 hover:bg-red-950/80 text-slate-400 hover:text-red-300 text-xs font-medium rounded-xl transition-colors flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Clear All</span></button>
+          </div>
+        </div>`:''}
+        <div class="flex-1 overflow-y-auto space-y-2 pr-1 my-2">
+          ${state.history.length===0?`
+          <div class="py-12 text-center text-slate-500 space-y-2"><i data-lucide="film" class="w-10 h-10 mx-auto opacity-30 text-slate-400"></i><p class="text-xs">No downloaded videos in history yet.</p><p class="text-[11px] text-slate-600">Extracted videos will automatically save here for quick access.</p></div>
+          `: filtered.length===0 ? `<div class="py-8 text-center text-slate-500 text-xs">No history matches "${escapeHtml(state.historySearch)}"</div>` :
+          filtered.map(item => `
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 hover:border-slate-700 flex items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-3 min-w-0">
+              <img src="${item.thumbnailUrl}" alt="${escapeHtml(item.title)}" class="w-12 h-12 rounded-lg object-cover bg-slate-900 shrink-0" />
+              <div class="min-w-0">
+                <h4 class="font-semibold text-slate-200 line-clamp-1">${escapeHtml(item.title)}</h4>
+                <div class="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5 flex-wrap"><span class="uppercase font-bold text-indigo-400">${item.platform}</span><span>•</span><span>${escapeHtml(item.formatLabel)}</span><span>•</span><span class="text-slate-500">${item.downloadedAt}</span></div>
+              </div>
+            </div>
+            <a href="${item.originalUrl}" target="_blank" rel="noreferrer" class="p-2 text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 rounded-lg shrink-0 transition-colors" title="Open Source Link"><i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
+          </div>`).join('')}
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end"><button data-action="close-history" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-colors">Close</button></div>
+      </div>
+    </div>`;
+  }
+
+  root.innerHTML = html;
+  lucide.createIcons();
+}
+
+function exportCSV(){
+  if(state.history.length===0) return;
+  const headers = ['Title','Platform','Format','Downloaded At','File Size','URL'];
+  const rows = state.history.map(item => [
+    `"${item.title.replace(/"/g,'""')}"`, item.platform, item.formatLabel, item.downloadedAt, item.filesize, `"${item.originalUrl}"`
+  ]);
+  const csv = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const link = document.createElement('a');
+  link.href = encodeURI(csv);
+  link.download = 'Tap2Save.net_Download_History.csv';
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// ---------------- Master render ----------------
+function renderAll(){
+  renderNavbar();
+  renderInputBox();
+  renderQueue();
+  renderModals();
+}
+
+// ---------------- Event delegation ----------------
+document.addEventListener('submit', (e) => {
+  if(e.target.id === 'urlForm'){
+    e.preventDefault();
+    let urls = [];
+    if(state.mode === 'single'){
+      const v = document.getElementById('singleUrlInput').value.trim();
+      if(v) urls = [v];
+    } else {
+      urls = document.getElementById('batchUrlInput').value.split('\n').map(u=>u.trim()).filter(Boolean);
+    }
+    if(urls.length === 0) return;
+    const quality = document.getElementById('defaultQualitySelect').value;
+    processUrls(urls, quality);
+  }
+});
+
+document.addEventListener('input', (e) => {
+  if(e.target.id === 'singleUrlInput' || e.target.id === 'batchUrlInput'){
+    renderInputBox();
+  }
+  if(e.target.id === 'historySearchInput'){
+    state.historySearch = e.target.value;
+    renderModals();
+    // restore focus & cursor after re-render
+    requestAnimationFrame(() => {
+      const el = document.getElementById('historySearchInput');
+      if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    });
+  }
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target;
+  if(el.dataset && el.dataset.actionChange === 'format-change'){
+    handleFormatChange(el.dataset.id, el.value);
+  }
+  if(el.id === 'filterPlatformSelect'){
+    state.filterPlatform = el.value;
+    renderQueue();
+  }
+  if(el.id === 'applyQualityAllSelect'){
+    handleApplyQualityToAll(el.value);
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+
+  switch(action){
+    case 'scroll-to-input':
+      document.getElementById('inputSection').scrollIntoView({behavior:'smooth'});
+      break;
+    case 'open-guide': state.isGuideOpen = true; renderModals(); break;
+    case 'close-guide': case 'close-guide-backdrop': state.isGuideOpen = false; renderModals(); break;
+    case 'open-history': state.isHistoryOpen = true; renderModals(); break;
+    case 'close-history': case 'close-history-backdrop': state.isHistoryOpen = false; state.historySearch=''; renderModals(); break;
+    case 'close-preview': case 'close-preview-backdrop': state.previewItemId = null; renderModals(); break;
+    case 'close-ai': case 'close-ai-backdrop': state.aiItemId = null; state.aiData = null; renderModals(); break;
+    case 'mode-single': state.mode = 'single'; renderInputBox(); break;
+    case 'mode-batch': state.mode = 'batch'; renderInputBox(); break;
+    case 'paste-clipboard':
+      navigator.clipboard.readText().then(text => {
+        if(el.dataset.mode === 'single'){ document.getElementById('singleUrlInput').value = text; }
+        else { const ta = document.getElementById('batchUrlInput'); ta.value = ta.value ? ta.value + '\n' + text : text; }
+        renderInputBox();
+      }).catch(()=>{ showToast('Clipboard access unavailable or denied.'); });
+      break;
+    case 'load-samples':
+      state.mode = 'batch';
+      document.getElementById('batchUrlInput').value = SAMPLE_URLS.join('\n');
+      renderInputBox();
+      showToast('Loaded demo sample links.');
+      break;
+    case 'clear-input':
+      document.getElementById('singleUrlInput').value = '';
+      document.getElementById('batchUrlInput').value = '';
+      renderInputBox();
+      break;
+    case 'remove-item': handleRemoveQueueItem(id); break;
+    case 'download-single': {
+      const item = state.queue.find(i=>i.id===id);
+      if(item) triggerItemDownload(item, false);
+      break;
+    }
+    case 'download-audio': {
+      const item = state.queue.find(i=>i.id===id);
+      if(item) triggerItemDownload(item, true);
+      break;
+    }
+    case 'download-from-preview': {
+      const item = state.queue.find(i=>i.id===id);
+      if(item){ triggerItemDownload(item, false); state.previewItemId = null; renderModals(); }
+      break;
+    }
+    case 'preview-item': state.previewItemId = id; renderModals(); break;
+    case 'open-ai-item': {
+      state.aiItemId = id;
+      const item = state.queue.find(i=>i.id===id);
+      if(item) fetchAISummary(item);
+      break;
+    }
+    case 'regenerate-ai': {
+      const item = state.queue.find(i=>i.id===state.aiItemId);
+      if(item) fetchAISummary(item);
+      break;
+    }
+    case 'copy-hashtags':
+      if(state.aiData) navigator.clipboard.writeText(state.aiData.hashtags.join(' '));
+      showToast('Hashtags copied!');
+      break;
+    case 'copy-caption':
+      if(state.aiData) navigator.clipboard.writeText(state.aiData.suggestedCaptions[el.dataset.index]);
+      showToast('Caption copied!');
+      break;
+    case 'copy-bookmarklet': {
+      const code = `javascript:(function(){var u=location.href;window.open('${window.location.origin+window.location.pathname}?url='+encodeURIComponent(u));})();`;
+      navigator.clipboard.writeText(code);
+      showToast('Bookmarklet code copied!');
+      break;
+    }
+    case 'download-all-zip': handleDownloadAllZip(); break;
+    case 'download-all-sequential': handleDownloadAllSequential(); break;
+    case 'clear-completed': handleClearCompleted(); break;
+    case 'clear-all-queue': handleClearAllQueue(); break;
+    case 'export-csv': exportCSV(); break;
+    case 'clear-history': state.history = []; saveHistory(); renderModals(); break;
+  }
+});
+
+// ---------------- Init ----------------
+renderPlatformsShowcase();
+renderAll();
+lucide.createIcons();
+
+// Bookmarklet auto-parse
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const paramUrl = params.get('url');
+  if(paramUrl){
+    processUrls([paramUrl], '1080p');
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+})();
+</script>
+</body>
+</html>
