@@ -874,7 +874,7 @@ function renderModals(){
       const currentFormat = item.formats.find(f=>f.id===item.selectedFormatId) || item.formats[0];
       html += `
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-preview-backdrop">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-hidden">
           <div class="flex items-center justify-between pb-3 border-b border-slate-800">
             <div class="flex items-center gap-2">
               <div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400"><i data-lucide="film" class="w-4 h-4"></i></div>
@@ -910,7 +910,7 @@ function renderModals(){
       const data = state.aiData;
       html += `
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-ai-backdrop">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-y-auto">
           <div class="flex items-center justify-between pb-4 border-b border-slate-800">
             <div class="flex items-center gap-2.5">
               <div class="w-9 h-9 rounded-xl bg-purple-950 border border-purple-800/60 flex items-center justify-center text-purple-400"><i data-lucide="sparkles" class="w-5 h-5 text-amber-300 animate-pulse"></i></div>
@@ -962,7 +962,7 @@ function renderModals(){
     const bookmarkletCode = `javascript:(function(){var u=location.href;window.open('${window.location.origin+window.location.pathname}?url='+encodeURIComponent(u));})();`;
     html += `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-guide-backdrop">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col overflow-y-auto">
         <div class="flex items-center justify-between pb-4 border-b border-slate-800">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-xl bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400"><i data-lucide="help-circle" class="w-5 h-5"></i></div>
@@ -1004,7 +1004,7 @@ function renderModals(){
     const filtered = state.history.filter(i => i.title.toLowerCase().includes(search) || i.platform.toLowerCase().includes(search));
     html += `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" data-action="close-history-backdrop">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-100 max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between pb-4 border-b border-slate-800">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-xl bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400"><i data-lucide="history" class="w-5 h-5"></i></div>
@@ -1154,6 +1154,17 @@ document.addEventListener('click', (e) => {
   if(!el) return;
   const action = el.dataset.action;
   const id = el.dataset.id;
+
+  // Backdrop-close actions must only fire when the click landed directly on
+  // the backdrop element itself, not when it bubbled up from a button or any
+  // other content inside the modal (closest() would otherwise match the
+  // backdrop for ANY click inside it, since inner content has no data-action
+  // of its own to intercept at). This replaces the old approach of putting
+  // onclick="event.stopPropagation()" on the modal content wrapper, which
+  // blocked the click from ever reaching this delegated listener at all —
+  // that's what made every button inside a modal (Close/X, Download, AI
+  // Insights actions, etc.) randomly stop responding.
+  if(action.endsWith('-backdrop') && e.target !== el) return;
 
   switch(action){
     case 'scroll-to-input':
