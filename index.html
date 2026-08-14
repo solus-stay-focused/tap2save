@@ -42,7 +42,7 @@
           <span class="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-200">Tap2Save.net</span>
           <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wider text-indigo-300 bg-indigo-950/80 border border-indigo-800/60 rounded-full uppercase">HD Multi-Downloader</span>
         </div>
-        <p class="text-xs text-slate-400 hidden sm:block">YouTube • Instagram • TikTok • Twitter • Facebook & More</p>
+        <p class="text-xs text-slate-400 hidden sm:block">YouTube • YouTube Music • Instagram • TikTok • Twitter • Facebook & More</p>
       </div>
     </div>
     <div class="flex items-center gap-2 sm:gap-3">
@@ -239,6 +239,7 @@ const SAMPLE_STREAMS = [
 
 const PLATFORM_CONFIG = {
   youtube:{ label:'YouTube Shorts', bg:'bg-red-950/80', text:'text-red-400', border:'border-red-800/60' },
+  youtubemusic:{ label:'YouTube Music', bg:'bg-rose-950/80', text:'text-rose-400', border:'border-rose-800/60' },
   instagram:{ label:'Instagram Reel', bg:'bg-pink-950/80', text:'text-pink-400', border:'border-pink-800/60' },
   tiktok:{ label:'TikTok (No WM)', bg:'bg-teal-950/80', text:'text-teal-400', border:'border-teal-800/60' },
   twitter:{ label:'Twitter / X', bg:'bg-sky-950/80', text:'text-sky-400', border:'border-sky-800/60' },
@@ -265,6 +266,8 @@ const PLATFORMS_SHOWCASE = [
     icon:'<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"><path d="M12 3a7 7 0 0 0-2.5 13.5c0-.6.05-1.5.2-2.2l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.85 0 1.26.64 1.26 1.4 0 .85-.55 2.13-.83 3.31-.24 1 .5 1.8 1.48 1.8 1.78 0 3.15-1.88 3.15-4.58 0-2.4-1.72-4.08-4.18-4.08a4.34 4.34 0 0 0-4.53 4.35c0 .86.33 1.78.74 2.28"/></svg>' },
   { name:'Threads & Vimeo', color:'from-purple-600 to-indigo-600', desc:'Save video posts from Meta Threads and Vimeo HD video streams.', badge:'Threads & Vimeo',
     icon:'<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"><path d="M8 8.5c1.6-1.2 3.4-1.6 5-1 2 .8 3 2.5 3 4.5 0 3-2 5.5-5 5.5-2 0-3.4-1-4-2.3-.5-1.1-.2-2.4.9-3 1-.6 2.4-.4 3 .5"/></svg>' },
+  { name:'YouTube Music', color:'from-rose-600 to-red-700', desc:'Grab full tracks and music videos from music.youtube.com as HD MP4 or 320kbps MP3.', badge:'Tracks & MP3',
+    icon:'<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="1.7"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="2.6" fill="white" stroke="none"/><path d="M12 9.4 L16 12 L12 14.6 Z" fill="white" stroke="none"/></svg>' },
 ];
 
 const SAMPLE_URLS = [
@@ -319,6 +322,7 @@ function formatDuration(seconds){
 
 function mapApiPlatform(label){
   const l = (label || '').toLowerCase();
+  if(l.includes('music.youtube') || l.includes('youtube music')) return 'youtubemusic';
   if(l.includes('youtube')) return 'youtube';
   if(l.includes('instagram')) return 'instagram';
   if(l.includes('tiktok')) return 'tiktok';
@@ -413,6 +417,7 @@ function escapeHtml(str){
 
 function detectPlatform(url){
   const lower = url.toLowerCase();
+  if(lower.includes('music.youtube.com')) return 'youtubemusic';
   if(lower.includes('youtube.com') || lower.includes('youtu.be')) return 'youtube';
   if(lower.includes('instagram.com') || lower.includes('instagr.am')) return 'instagram';
   if(lower.includes('tiktok.com')) return 'tiktok';
