@@ -474,6 +474,13 @@ function handleFormatChange(itemId, formatId){
   renderQueue();
 }
 
+function handleCancelDownload(itemId){
+  const item = state.queue.find(i => i.id === itemId);
+  if(item && item.abortController){
+    item.abortController.abort();
+  }
+}
+
 function handleApplyQualityToAll(quality){
   state.queue.forEach(item => {
     const f = item.formats.find(f => f.quality === quality) || item.formats[0];
@@ -493,6 +500,7 @@ async function triggerItemDownload(item, isAudioOnly){
   item.progressKnown = true; // always show a % now, no more "Connecting..."
   item.downloadedLabel = 'Preparing your file';
   item.speedLabel = '';
+  item.abortController = new AbortController();
   renderQueue();
 
   // The backend has to fetch + merge the file server-side before it can
@@ -510,11 +518,11 @@ async function triggerItemDownload(item, isAudioOnly){
     const elapsed = performance.now() - startTime;
     const pct = Math.min(92, Math.round(92 * (1 - Math.exp(-elapsed / estimatedMs))));
     item.progress = pct;
-    renderQueue();
+    updateCardProgress(item);
   }, 250);
 
   try {
-    const res = await fetch(formatToUse.downloadUrl);
+    const res = await fetch(formatToUse.downloadUrl, { signal: item.abortController.signal });
     estimating = false;
     clearInterval(estimateTimer);
 
@@ -552,7 +560,7 @@ async function triggerItemDownload(item, isAudioOnly){
           item.downloadedLabel = `${formatBytes(loaded)} received`;
         }
 
-        renderQueue();
+        updateCardProgress(item);
         lastTickTime = now;
         lastTickBytes = loaded;
       }
@@ -570,12 +578,23 @@ async function triggerItemDownload(item, isAudioOnly){
   } catch(e){
     estimating = false;
     clearInterval(estimateTimer);
+
+    if(e.name === 'AbortError'){
+      // User clicked Cancel - stop here, don't fall back or mark completed.
+      item.status = 'canceled';
+      item.abortController = null;
+      renderQueue();
+      showToast(`Canceled download: ${item.title.substring(0,30)}...`);
+      return;
+    }
+
     console.warn('Streamed download failed, falling back to direct open:', e.message);
     // Fallback: open directly if fetch/stream fails (e.g. CORS, network hiccup)
     window.open(formatToUse.downloadUrl, '_blank');
   }
 
   item.status = 'completed'; item.progress = 100;
+  item.abortController = null;
 
   state.history = [{
     id: `hist_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
@@ -632,6 +651,8 @@ async function handleDownloadAllSequential(){
 }
 
 function handleRemoveQueueItem(id){
+  const item = state.queue.find(i => i.id === id);
+  if(item && item.abortController) item.abortController.abort();
   state.queue = state.queue.filter(i => i.id !== id);
   renderAll();
 }
@@ -766,7 +787,7 @@ function renderQueueCard(item){
   const p = PLATFORM_CONFIG[item.platform] || PLATFORM_CONFIG.generic;
   const currentFormat = item.formats.find(f=>f.id===item.selectedFormatId) || item.formats[0];
   return `
-  <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition-all shadow-md group relative">
+  <div data-card-id="${item.id}" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition-all shadow-md group relative">
     <div class="flex flex-col md:flex-row gap-4 items-start md:items-center">
       <div class="relative w-full md:w-44 h-28 rounded-xl overflow-hidden bg-slate-950 shrink-0">
         <img src="${item.thumbnailUrl}" alt="${escapeHtml(item.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
@@ -805,23 +826,27 @@ function renderQueueCard(item){
           <a href="${item.originalUrl}" target="_blank" rel="noreferrer" class="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"><i data-lucide="external-link" class="w-3 h-3"></i><span class="hidden sm:inline">Source</span></a>
         </div>
         ${item.status==='downloading'?`
-        <div class="mt-3">
+        <div class="mt-3" data-progress-block>
           <div class="flex justify-between items-center text-[11px] text-indigo-300 mb-1 font-mono">
             <span class="flex items-center gap-1">
-              <span>${escapeHtml(item.downloadedLabel || 'Downloading')}</span>
+              <span data-progress-label>${escapeHtml(item.downloadedLabel || 'Downloading')}</span>
               <span class="inline-flex w-3">
                 <span class="animate-pulse" style="animation-delay:0ms">.</span>
                 <span class="animate-pulse" style="animation-delay:150ms">.</span>
                 <span class="animate-pulse" style="animation-delay:300ms">.</span>
               </span>
             </span>
-            <span class="text-slate-400 font-semibold">${item.speedLabel ? item.speedLabel + ' • ' : ''}${item.progress}%</span>
+            <span class="flex items-center gap-2">
+              <span class="text-slate-400 font-semibold" data-progress-pct>${item.speedLabel ? item.speedLabel + ' • ' : ''}${item.progress}%</span>
+              <button data-action="cancel-download" data-id="${item.id}" class="flex items-center gap-1 text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded hover:bg-red-950/50 transition-colors" title="Cancel Download"><i data-lucide="x" class="w-3 h-3"></i><span>Cancel</span></button>
+            </span>
           </div>
           <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-            <div class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-200" style="width:${item.progress}%"></div>
+            <div class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-200" style="width:${item.progress}%" data-progress-fill></div>
           </div>
         </div>`:''}
         ${item.status==='completed'?`<div class="mt-2.5 flex items-center gap-1.5 text-xs text-green-400 font-medium"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Downloaded successfully!</span></div>`:''}
+        ${item.status==='canceled'?`<div class="mt-2.5 flex items-center gap-1.5 text-xs text-amber-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i><span>Download canceled</span></div>`:''}
       </div>
       <div class="flex sm:flex-col items-center gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
         <button data-action="download-single" data-id="${item.id}" ${item.status==='downloading'?'disabled':''} class="flex-1 sm:flex-initial w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-md transition-colors flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>Download (${currentFormat.quality})</span></button>
@@ -829,6 +854,24 @@ function renderQueueCard(item){
       </div>
     </div>
   </div>`;
+}
+
+// Patches just the progress bar/label of one card in place, without touching
+// the rest of that card's DOM. This avoids destroying/recreating the whole
+// card node on every tick (which was causing it to flicker under the cursor,
+// since :hover + transitions restart whenever the node is replaced).
+function updateCardProgress(item){
+  const card = document.querySelector(`[data-card-id="${item.id}"]`);
+  if(!card) return; // card not mounted (e.g. filtered out) - nothing to patch
+
+  const label = card.querySelector('[data-progress-label]');
+  if(label) label.textContent = item.downloadedLabel || 'Downloading';
+
+  const pct = card.querySelector('[data-progress-pct]');
+  if(pct) pct.textContent = `${item.speedLabel ? item.speedLabel + ' • ' : ''}${item.progress}%`;
+
+  const fill = card.querySelector('[data-progress-fill]');
+  if(fill) fill.style.width = `${item.progress}%`;
 }
 
 function renderQueue(){
@@ -1209,6 +1252,7 @@ document.addEventListener('click', (e) => {
       renderInputBox();
       break;
     case 'remove-item': handleRemoveQueueItem(id); break;
+    case 'cancel-download': handleCancelDownload(id); break;
     case 'download-single': {
       const item = state.queue.find(i=>i.id===id);
       if(item) triggerItemDownload(item, false);
