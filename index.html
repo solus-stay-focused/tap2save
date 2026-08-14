@@ -105,7 +105,7 @@
 
       <form id="urlForm" class="mt-5 space-y-4">
         <div id="singleModeBox">
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Video URL <span class="text-slate-500 font-normal normal-case">— paste a link and the download starts automatically</span></label>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Video URL <span class="text-slate-500 font-normal normal-case">— paste a link and it loads automatically, pick a resolution, then hit Download</span></label>
           <div class="relative">
             <input id="singleUrlInput" type="url" placeholder="Paste video link e.g. https://instagram.com/reel/... or https://youtu.be/..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-colors pr-24" />
             <button type="button" data-action="paste-clipboard" data-mode="single" class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors">
@@ -1087,10 +1087,7 @@ async function autoStartSingleDownload(){
   const newItems = await processUrls([val], quality);
 
   if(newItems && newItems.length > 0){
-    const item = newItems[0];
-    const isAudioOnly = quality === 'mp3_320';
-    showToast('Link detected — starting download automatically!');
-    triggerItemDownload(item, isAudioOnly);
+    showToast('Video ready — pick a resolution, then hit Download.');
   }
 
   // Clear the box so the next pasted link is treated as a fresh request
