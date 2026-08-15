@@ -326,7 +326,7 @@ function mapApiPlatform(label){
 }
 
 function buildFormatsFromApi(apiData){
-  const videoFormats = (apiData.formats || []).filter(f => f.kind === 'video').slice(0, 4);
+  const videoFormats = (apiData.formats || []).filter(f => f.kind === 'video'); // show every quality the backend found for this video
   const audioFormats = (apiData.formats || []).filter(f => f.kind === 'audio').slice(0, 1);
   let combined = [...videoFormats, ...audioFormats];
 
