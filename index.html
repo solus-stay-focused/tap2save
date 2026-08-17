@@ -135,7 +135,6 @@
             <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400 shrink-0"></i>
             <span class="text-xs font-medium text-slate-400 shrink-0">Default Format:</span>
             <select id="defaultQualitySelect" class="bg-transparent text-xs font-semibold text-indigo-300 focus:outline-none cursor-pointer">
-              <option value="1080p">1080p Full HD (MP4)</option>
               <option value="720p">720p HD (MP4)</option>
               <option value="480p">480p SD (MP4)</option>
               <option value="mp3_320">320kbps Audio (MP3)</option>
@@ -246,7 +245,7 @@ const PLATFORM_CONFIG = {
 };
 
 const PLATFORMS_SHOWCASE = [
-  { name:'YouTube & Shorts', color:'from-red-600 to-rose-700', desc:'Download videos up to 1080p HD, Shorts, and 320kbps MP3 audio.', badge:'Shorts & Videos',
+  { name:'YouTube & Shorts', color:'from-red-600 to-rose-700', desc:'Download videos up to 720p HD, Shorts, and 320kbps MP3 audio.', badge:'Shorts & Videos',
     icon:'<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="white"><rect x="2" y="5" width="20" height="14" rx="4" fill="none" stroke="white" stroke-width="1.6"/><path d="M10 9.2 L15.5 12 L10 14.8 Z" fill="white"/></svg>' },
   { name:'Instagram Reels & Posts', color:'from-pink-600 to-purple-600', desc:'Save public Reels, Carousel videos, and Stories in full resolution MP4.', badge:'Reels & Stories',
     icon:'<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="0.9" fill="white" stroke="none"/></svg>' },
@@ -755,7 +754,6 @@ function renderBatchControlsBar(){
           <span class="text-slate-400 hidden sm:inline">Set All:</span>
           <select id="applyQualityAllSelect" class="bg-transparent text-indigo-300 font-semibold focus:outline-none cursor-pointer">
             <option value="" disabled selected class="text-slate-500">Apply Format to All...</option>
-            <option value="1080p">1080p Full HD</option>
             <option value="720p">720p HD</option>
             <option value="480p">480p SD</option>
             <option value="mp3_320">320kbps MP3 Audio</option>
@@ -1307,7 +1305,7 @@ lucide.createIcons();
   const params = new URLSearchParams(window.location.search);
   const paramUrl = params.get('url');
   if(paramUrl){
-    processUrls([paramUrl], '1080p');
+    processUrls([paramUrl], '720p');
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 })();
